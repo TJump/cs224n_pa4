@@ -10,12 +10,11 @@ import org.ejml.simple.*;
 
 
 public class FeatureFactory {
-
-
-	private FeatureFactory() {
-
-	}
-
+	
+	final static String START_WORD = "<s>";
+	final static String STOP_WORD = "</s>";
+	final static int N_VECTOR_SIZE = 50;
+	private FeatureFactory() {}
 	 
 	static List<Datum> trainData;
 	/** Do not modify this method **/
@@ -55,8 +54,8 @@ public class FeatureFactory {
 	static SimpleMatrix allVecs; //access it directly in WindowModel
 	public static SimpleMatrix readWordVectors(String vecFilename) throws IOException {
 		if (allVecs!=null) return allVecs;
-		int n = 50;
-		allVecs = new SimpleMatrix(n, wordToNum.size());
+		
+		allVecs = new SimpleMatrix(N_VECTOR_SIZE, wordToNum.size());
 		BufferedReader in = new BufferedReader(new FileReader(vecFilename));
 		int nCol = 0;
 		for (String line = in.readLine(); line != null; line = in.readLine()) {
@@ -69,9 +68,10 @@ public class FeatureFactory {
 			}
 			nCol++;
 		}
+		in.close();
 		return allVecs;
-//		return new SimpleMatrix(MatrixIO.loadCSV(vecFilename, wordToNum.size(), 50)).transpose();
 	}
+	
 	// might be useful for word to number lookups, just access them directly in WindowModel
 	public static HashMap<String, Integer> wordToNum = new HashMap<String, Integer>(); 
 	public static HashMap<Integer, String> numToWord = new HashMap<Integer, String>();
@@ -91,16 +91,7 @@ public class FeatureFactory {
 				i++;
 			}
 		}
-		
-//		return wordToNum;
+		in.close();
 	}
  
-
-
-
-
-
-
-
-
 }
