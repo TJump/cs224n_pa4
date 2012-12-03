@@ -64,6 +64,7 @@ public class WindowModel {
 		initWeights();
 	}
 	
+
 	public void setWindowSize(int windowSize){
 		this.windowSize = windowSize;
 		initAll();
@@ -279,21 +280,21 @@ public class WindowModel {
 			// test for plotting learning curve
 			double testF1 = test(testData);
 			double trainF1 = test(trainData);
-			
-			writeResult(i, trainF1, testF1, totalCost_J);
+			int elapsedTime = (int)((System.currentTimeMillis() - startTime)/1000); 
+			writeResult(i, trainF1, testF1, totalCost_J, elapsedTime);
 		}
 		long endTime = System.currentTimeMillis();
 		System.out.println("training took " + (endTime - startTime)/1000 + " sec.");
 	}
 	
-	private void writeResult(int iteration, double trainF1, double testF1, double totalCost){
+	private void writeResult(int iteration, double trainF1, double testF1, double totalCost, int elapsedTime){
 		String fileName = String.format("result_%d_%d_%.4f_%.4f.txt", windowSize, hiddenSize, learningRate, regularizationWeight);
 		File f = new File(fileName);
 		BufferedWriter bw = null;
 		try{
 			bw = new BufferedWriter(new FileWriter(f, true));
-			bw.append(String.format("%d, %f, %f, %f, %d, %d, %f, %f\n", 
-					iteration, trainF1, testF1, totalCost, windowSize, hiddenSize, learningRate, regularizationWeight));
+			bw.append(String.format("%d, %f, %f, %f, %d, %d, %d, %f, %f\n", 
+					iteration, trainF1, testF1, totalCost, elapsedTime, windowSize, hiddenSize, learningRate, regularizationWeight));
 		}
 		catch(Exception e){}
 		finally{
@@ -416,6 +417,12 @@ public class WindowModel {
 		return true;
 	}
 	
+	/***
+	 * The cost is not yet normalized by the number of training (m)
+	 * @param x
+	 * @param y
+	 * @return
+	 */
 	private double getCostJ(SimpleMatrix x, int y){
 		double hValue = getH(x);
 		double regTerm = 0.5 * regularizationWeight * (W.elementMult(W).elementSum() + U.elementMult(U).elementSum());

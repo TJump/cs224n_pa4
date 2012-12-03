@@ -26,14 +26,17 @@ public class NER {
 		int windowSize = 7;
 		int hiddenSize = 100;
 		double learningRate = 0.001;
-		double regularization = 0;
-		int iter = 10;
-		WindowModel model = new WindowModel(trainData, testData, windowSize, hiddenSize, learningRate, regularization, iter);
+		double regularization = 0.000;
 		
+		int iter = 20;
+//		WindowModel model = new WindowModel(trainData, testData, windowSize, hiddenSize, learningRate, regularization, iter);
+		WindowModel model = null;
 //		int[] windowSizeArray = new int[]{3, 5, 7, 9};
-		double[] learningRateArray = new double[]{0.003, 0.005, 0.01};
-		for(double lr : learningRateArray){
-			model.setLearningRate(lr);
+//		double[] learningRateArray = new double[]{0.003, 0.005, 0.01};
+		int[] hiddenSizeArray = new int[]{100};
+		for(int h : hiddenSizeArray){
+			hiddenSize = h;
+			model = new WindowModel(trainData, testData, windowSize, hiddenSize, learningRate, regularization, iter);
 			model.train();
 			model.test();
 		}
