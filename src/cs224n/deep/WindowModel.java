@@ -19,7 +19,7 @@ public class WindowModel {
 	final static int N_VECTOR_SIZE = 50; // this won't change!
 	
 	// Default hyperparameters
-	final static double DEFAULT_REGULARIZATION_WEIGHT = 0.001;
+	final static double DEFAULT_REGULARIZATION_WEIGHT = 0.0001;
 	final static double DEFAULT_LEARNING_RATE = 0.001;
 	final static int DEFAULT_WINDOW_SIZE = 5;
 	final static int DEFAULT_HIDDEN_SIZE = 100;
@@ -55,19 +55,28 @@ public class WindowModel {
 		numIterations = _numIter;
 		regularizationWeight = _regWeight;
 		
-		// Dimension(L) = n x V
-		L = FeatureFactory.allVecs;
-		
-		initWeights();
+		initAll();
 	}		
 
+	private void initAll(){
+		// Dimension(L) = n x V
+		L = new SimpleMatrix(FeatureFactory.allVecs);
+		initWeights();
+	}
+	
 	public void setWindowSize(int windowSize){
 		this.windowSize = windowSize;
-		initWeights();
+		initAll();
+	}
+	
+	public void setLearningRate(double lr){
+		learningRate = lr;
+		initAll();
 	}
 	
 	public void setNumIterations(int numIterations){
 		this.numIterations = numIterations;
+		initAll();
 	}
 	
 	/**
@@ -194,7 +203,6 @@ public class WindowModel {
 		
 		long startTime = System.currentTimeMillis();
 		
-		
 		for(int i=1;i<=numIterations;i++){
 			
 			System.out.println("\tepoch # " + i);
@@ -272,20 +280,20 @@ public class WindowModel {
 			double testF1 = test(testData);
 			double trainF1 = test(trainData);
 			
-			writeFile(i, trainF1, testF1);
+			writeResult(i, trainF1, testF1, totalCost_J);
 		}
 		long endTime = System.currentTimeMillis();
 		System.out.println("training took " + (endTime - startTime)/1000 + " sec.");
 	}
 	
-	private void writeFile(int iteration, double trainF1, double testF1){
+	private void writeResult(int iteration, double trainF1, double testF1, double totalCost){
 		String fileName = String.format("result_%d_%d_%.4f_%.4f.txt", windowSize, hiddenSize, learningRate, regularizationWeight);
 		File f = new File(fileName);
 		BufferedWriter bw = null;
 		try{
 			bw = new BufferedWriter(new FileWriter(f, true));
-			bw.append(String.format("%d, %f, %f, %d, %d, %f, %f\n", 
-					iteration, trainF1, testF1, windowSize, hiddenSize, learningRate, regularizationWeight));
+			bw.append(String.format("%d, %f, %f, %f, %d, %d, %f, %f\n", 
+					iteration, trainF1, testF1, totalCost, windowSize, hiddenSize, learningRate, regularizationWeight));
 		}
 		catch(Exception e){}
 		finally{
