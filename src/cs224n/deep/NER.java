@@ -23,10 +23,13 @@ public class NER {
 		FeatureFactory.readWordVectors("data/wordVectors.txt");
 		
 		// initialize model 
-		WindowModel model = new WindowModel(5, 100, 0.001, 0.0001, 2);
-		model.initWeights();
-	
-		model.train(trainData);
-		model.test(testData);
+		WindowModel model = new WindowModel(trainData, testData, 5, 100, 0.001, 0.0001, 15);
+		
+		int[] windowSize = new int[]{3, 5, 7, 9};
+		for(int w : windowSize){
+			model.setWindowSize(w);
+			model.train();
+			model.test();
+		}
     }
 }

@@ -1,4 +1,8 @@
 package cs224n.deep;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.*;
 
 import org.ejml.simple.*;
@@ -11,8 +15,8 @@ public class WindowModel {
 	final static double EPSILON = 1e-4;
 	final static double THRESHOLD = 1e-7;
 	
-	final static int MAX_TRAIN_SIZE = 300000;
-	final static int N_VECTOR_SIZE = 50;
+	final static int MAX_TRAIN_SIZE = -1;
+	final static int N_VECTOR_SIZE = 50; // this won't change!
 	
 	// Default hyperparameters
 	final static double DEFAULT_REGULARIZATION_WEIGHT = 0.001;
@@ -31,12 +35,20 @@ public class WindowModel {
 	private int numIterations;
 	private int windowSize, hiddenSize;
 
+	private List<Datum> trainData;
+	private List<Datum> testData;
+	public enum PARAMETERS {U, W, B1, B2, L};
+	
 	// default constructor
-	public WindowModel(){
-		this(DEFAULT_WINDOW_SIZE, DEFAULT_HIDDEN_SIZE, DEFAULT_LEARNING_RATE, DEFAULT_REGULARIZATION_WEIGHT, DEFAULT_NUM_ITERATIONS);
+	public WindowModel(List<Datum> trainData, List<Datum> testData){
+		this(trainData, testData, DEFAULT_WINDOW_SIZE, DEFAULT_HIDDEN_SIZE, DEFAULT_LEARNING_RATE, DEFAULT_REGULARIZATION_WEIGHT, DEFAULT_NUM_ITERATIONS);
 	}
 	
-	public WindowModel(int _windowSize, int _hiddenSize, double _learningRate, double _regWeight, int _numIter){
+	public WindowModel(List<Datum> trainData, List<Datum> testData, 
+			int _windowSize, int _hiddenSize, double _learningRate, double _regWeight, int _numIter){
+		this.trainData = trainData;
+		this.testData = testData;
+		
 		windowSize = _windowSize;
 		hiddenSize = _hiddenSize;
 		learningRate = _learningRate;
@@ -45,8 +57,19 @@ public class WindowModel {
 		
 		// Dimension(L) = n x V
 		L = FeatureFactory.allVecs;
+		
+		initWeights();
 	}		
 
+	public void setWindowSize(int windowSize){
+		this.windowSize = windowSize;
+		initWeights();
+	}
+	
+	public void setNumIterations(int numIterations){
+		this.numIterations = numIterations;
+	}
+	
 	/**
 	 * Initializes the weights randomly. 
 	 */
@@ -160,15 +183,17 @@ public class WindowModel {
 	}
 	
 	
-	public void train(List<Datum> _trainData){
-		int trainSize = _trainData.size();
+	public void train(){
+		
+		int trainSize = trainData.size();
 		System.out.println("===================");
 		System.out.println("training started...");
-		System.out.printf("\titerations = %d, training size: full = %d, limit = %d\n", numIterations, trainSize, MAX_TRAIN_SIZE);
+		System.out.printf("\titerations = %d \ntraining size: full = %d, limit = %d\n", numIterations, trainSize, MAX_TRAIN_SIZE);
 		System.out.printf("\tlearning rate = %f, reg weight = %f\n", learningRate, regularizationWeight);
+		System.out.printf("\twindow size = %d, hidden size = %d\n", windowSize, hiddenSize);
+		
 		long startTime = System.currentTimeMillis();
 		
-		trainingSizeM = _trainData.size();
 		
 		for(int i=1;i<=numIterations;i++){
 			
@@ -176,7 +201,7 @@ public class WindowModel {
 			double costSum = 0;
 			Integer sentenceIndex = new Integer(0);
 			
-			for(int j=0; j<_trainData.size(); j++){
+			for(int j=0; j<trainSize; j++){
 				
 				if(j%50000==0) System.out.println("\t\t#i = " + j);
 				if(MAX_TRAIN_SIZE > 0 && j > MAX_TRAIN_SIZE) break;
@@ -185,7 +210,7 @@ public class WindowModel {
 				// Getting a feature and its prediction
 				LinkedList<Integer> wordIndexList = new LinkedList<Integer>();
 				SimpleMatrix feature = new SimpleMatrix(windowSize * N_VECTOR_SIZE, 1);
-				IntTuple tuple = extractTrainingExample(j, _trainData, feature, sentenceIndex, wordIndexList);
+				IntTuple tuple = extractTrainingExample(j, trainData, feature, sentenceIndex, wordIndexList);
 				int y = tuple.getFirst();
 				sentenceIndex = tuple.getSecond();
 
@@ -242,12 +267,36 @@ public class WindowModel {
 			
 			double totalCost_J = (costSum + getCostRegTerm())/(double)trainSize;
 			System.out.println("\t\ttotal cost = " + totalCost_J);
+			
+			// test for plotting learning curve
+			double testF1 = test(testData);
+			double trainF1 = test(trainData);
+			
+			writeFile(i, trainF1, testF1);
 		}
 		long endTime = System.currentTimeMillis();
 		System.out.println("training took " + (endTime - startTime)/1000 + " sec.");
 	}
 	
-	enum PARAMETERS {U, W, B1, B2, L};
+	private void writeFile(int iteration, double trainF1, double testF1){
+		String fileName = String.format("result_%d_%d_%.4f_%.4f.txt", windowSize, hiddenSize, learningRate, regularizationWeight);
+		File f = new File(fileName);
+		BufferedWriter bw = null;
+		try{
+			bw = new BufferedWriter(new FileWriter(f, true));
+			bw.append(String.format("%d, %f, %f, %d, %d, %f, %f\n", 
+					iteration, trainF1, testF1, windowSize, hiddenSize, learningRate, regularizationWeight));
+		}
+		catch(Exception e){}
+		finally{
+			try {
+				bw.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
 	private SimpleMatrix getApproximateGradient(SimpleMatrix feature, int y, PARAMETERS params){
 		SimpleMatrix result = null;
 		
@@ -465,22 +514,26 @@ public class WindowModel {
 		return z.scale(factor_h).plus(zReg);
 	}
 	
-	public void test(List<Datum> testData){
+	public void test(){
+		test(this.testData);
+	}
+	
+	private double test(List<Datum> testData_){
 		System.out.println("===================");
 		System.out.println("Test started...");
 		int numCorrect = 0;
 		
-		System.out.println("test size = " + testData.size());
+		System.out.println("test size = " + testData_.size());
 		
 		int tp = 0, fp = 0;
 		int fn = 0;
 		int sentenceIndex = 0;
 		
-		for(int j=0; j<testData.size(); j++){
+		for(int j=0; j<testData_.size(); j++){
 			
 			LinkedList<Integer> wordIndexList = new LinkedList<Integer>();
 			SimpleMatrix feature = new SimpleMatrix(windowSize * N_VECTOR_SIZE, 1);
-			IntTuple tuple = extractTrainingExample(j, testData, feature, sentenceIndex, wordIndexList);
+			IntTuple tuple = extractTrainingExample(j, testData_, feature, sentenceIndex, wordIndexList);
 			int y = tuple.getFirst();
 			sentenceIndex = tuple.getSecond();
 			
@@ -498,10 +551,12 @@ public class WindowModel {
 		double recall = (1.0 * tp) / (tp + fn);
 		double f1 = 2.0*(precision * recall) / (precision + recall);
 		
-		System.out.println("acc = " + (1.0*numCorrect/testData.size()));
+		System.out.println("acc = " + (1.0*numCorrect/testData_.size()));
 		System.out.println("precision = " + precision);
 		System.out.println("recall = " + recall);
 		System.out.println("F1 = " + f1);
+		System.out.println("===================");
+		return f1;
 	}
 }
 
