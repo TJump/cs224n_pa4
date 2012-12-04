@@ -24,7 +24,7 @@ public class NER {
 //		FeatureFactory.saveTopWords(trainData, "top10k.txt", 10000);
 		
 		// initialize model 
-		int windowSize = 5;
+		int windowSize = 7;
 		int hiddenSize = 100;
 		double learningRate = 0.001;
 		double regularization = 3;
@@ -36,15 +36,20 @@ public class NER {
 //		double[] learningRateArray = new double[]{0.003, 0.005, 0.01};
 		int[] hiddenSizeArray = new int[]{100};
 		
+//		model = new WindowModel(trainData, testData, windowSize, hiddenSize, learningRate, regularization, iter);
+//		model.loadParametersFromFile();
+//		model.saveL("learnedL.csv");
+		
 		for(int h : hiddenSizeArray){
 			hiddenSize = h;
 			model = new WindowModel(trainData, testData, windowSize, hiddenSize, learningRate, regularization, iter);			
 //			model.saveL("originalL");
 			model.loadParametersFromFile();
 //			model.saveL("learnedL");
-//			model.train();
-//			model.saveParametersToFile();
-	//		model.test();
+			model.test(true);
+//			model.train(false);
+			
+//			model.test();
 			
 		}
 		

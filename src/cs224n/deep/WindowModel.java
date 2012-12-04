@@ -195,7 +195,7 @@ public class WindowModel {
 	}
 	
 	
-	public void train(){
+	public void train(boolean trainL){
 		
 		int trainSize = trainData.size();
 		System.out.println("===================");
@@ -252,41 +252,47 @@ public class WindowModel {
 				updatedb2 =  b2 - learningRate * getD_J_b2(feature, y, factor_h);
 				updatedW = W.minus(getD_J_W(feature, y, dz, factor_h).scale(learningRate));
 				updatedb1 = b1.minus(getD_J_b1(feature, y, dz, factor_h).scale(learningRate));
-				
-				// update L
 				List<SimpleMatrix> updatedLlist = new ArrayList<SimpleMatrix>(windowSize);
-				SimpleMatrix d_j_l = getD_J_L(feature, y, dz, factor_h).scale(learningRate);
-				for(int k=0; k<windowSize; k++){
-					int Lindex = wordIndexList.get(k);
-					int startIndex = N_VECTOR_SIZE*k;
-					int endIndex = N_VECTOR_SIZE*(k+1);	
-					SimpleMatrix toUpdate = d_j_l.extractMatrix(startIndex, endIndex, 0, 1);
-					
-					// L(:, Lindex) - learningRate * d_k
-					updatedLlist.add(L.extractVector(false, Lindex).minus(toUpdate));
+				
+				if(trainL){
+					SimpleMatrix d_j_l = getD_J_L(feature, y, dz, factor_h).scale(learningRate);
+					for(int k=0; k<windowSize; k++){
+						int Lindex = wordIndexList.get(k);
+						int startIndex = N_VECTOR_SIZE*k;
+						int endIndex = N_VECTOR_SIZE*(k+1);	
+						SimpleMatrix toUpdate = d_j_l.extractMatrix(startIndex, endIndex, 0, 1);
+						
+						// L(:, Lindex) - learningRate * d_k
+						updatedLlist.add(L.extractVector(false, Lindex).minus(toUpdate));
+					}
 				}
 				
+				//--------------------------------------------------
 				// Now, let's update the rest of parameters
 				U = updatedU;
 				b1 = updatedb1;
 				W = updatedW;
 				b2 = updatedb2;
-				for(int k=0; k<windowSize; k++){
-					L.insertIntoThis(0, wordIndexList.get(k), updatedLlist.get(k));
-				}
+				// update L
+				if(trainL)
+					for(int k=0; k<windowSize; k++){
+						L.insertIntoThis(0, wordIndexList.get(k), updatedLlist.get(k));
+					}
+				
 			}
 			
 			double totalCost_J = (costSum + getCostRegTerm())/(double)trainSize;
 			System.out.println("\t\ttotal cost = " + totalCost_J);
 			
 			// test for plotting learning curve
-			double testF1 = test(testData);
-			double trainF1 = test(trainData);
+			double testF1 = test(testData, false);
+			double trainF1 = test(trainData, false);
 			int elapsedTime = (int)((System.currentTimeMillis() - startTime)/1000);
 			
 			writeResult(i, trainF1, testF1, totalCost_J, elapsedTime);
 			saveParametersToFile();
-			saveL("learnedL_" + getFileNameFromParameters() + ".csv");
+			if(trainL)
+				saveL("learnedL_" + getFileNameFromParameters() + ".csv");
 		}
 		
 		long endTime = System.currentTimeMillis();
@@ -553,11 +559,11 @@ public class WindowModel {
 		return z.scale(factor_h).plus(zReg);
 	}
 	
-	public void test(){
-		test(this.testData);
+	public void test(boolean savePrediction){
+		test(this.testData, savePrediction);
 	}
 	
-	private double test(List<Datum> testData_){
+	private double test(List<Datum> testData_, boolean writeResult){
 		System.out.println("===================");
 		System.out.println("Test started...");
 		int numCorrect = 0;
@@ -568,6 +574,7 @@ public class WindowModel {
 		int fn = 0;
 		int sentenceIndex = 0;
 		
+		int[] prediction = new int[testData_.size()];
 		for(int j=0; j<testData_.size(); j++){
 			
 			LinkedList<Integer> wordIndexList = new LinkedList<Integer>();
@@ -580,11 +587,15 @@ public class WindowModel {
 			
 			int predict = hValue > 0.5 ? 1 : 0;
 			if(predict == y) numCorrect++;
+			prediction[j] = predict;
 			
 			if(predict == 1 && y == 1) tp++;
 			else if(predict == 1 && y == 0) fp++;
 			else if(predict == 0 && y == 1) fn++;				
 		}
+		
+		if(writeResult)
+			savePrediction(prediction);
 		
 		double precision = (1.0 * tp) / (tp + fp);
 		double recall = (1.0 * tp) / (tp + fn);
@@ -598,6 +609,29 @@ public class WindowModel {
 		return f1;
 	}
 	
+	private void savePrediction(int[] prediction){
+		String fileName = "dev_result";
+		File f = new File(fileName);
+		BufferedWriter bw = null;
+		
+		try{
+			bw = new BufferedWriter(new FileWriter(f));
+			for(int i=0;i<testData.size();i++){
+				String pred = prediction[i] == 0? "0" : "PERSON";
+				bw.append(String.format("%s\t%s\n", testData.get(i).word, pred));
+			}
+		}
+		catch(Exception e){}
+		finally{
+			try {
+				bw.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		System.out.println("Prediction saved...");
+	}
 	public void saveL(String fileName){
 		try {
 			L.saveToFileCSV(fileName);
