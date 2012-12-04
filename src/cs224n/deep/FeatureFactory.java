@@ -1,7 +1,10 @@
 package cs224n.deep;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
 
@@ -30,6 +33,38 @@ public class FeatureFactory {
         return testData;
 	}
 	
+	
+	public static void saveTopWords(List<Datum> train, String fileName, int topK) throws FileNotFoundException, IOException{
+		Map<Integer, Integer> wordCount = new HashMap<Integer, Integer>();	
+		for(Datum d : train){
+			int index = getIndex(d.word);
+			if(wordCount.containsKey(index)){
+				wordCount.put(index, wordCount.get(index) + 1);
+			} else {
+				wordCount.put(index, 1);
+			}
+		}
+		
+		// http://stackoverflow.com/questions/109383/how-to-sort-a-mapkey-value-on-the-values-in-java
+		ValueComparator bvc =  new ValueComparator(wordCount);
+		TreeMap<Integer, Integer> sorted_map = new TreeMap<Integer, Integer>(bvc);
+		sorted_map.putAll(wordCount);
+		
+		File f = new File(fileName);
+		BufferedWriter bw = null;
+		bw = new BufferedWriter(new FileWriter(f));
+		int c = 1;
+		for(Integer s : sorted_map.keySet()){
+			if(c>topK) break;
+			if(!wordCount.containsKey(s))
+				System.out.println(s);
+			System.out.println(numToWord.get(s));
+			bw.append(s + "\n");
+			c++;
+		}
+		bw.close();
+	}
+	
 	private static List<Datum> read(String filename)
 			throws FileNotFoundException, IOException {
 		List<Datum> data = new ArrayList<Datum>();
@@ -39,7 +74,7 @@ public class FeatureFactory {
 				continue;
 			}
 			String[] bits = line.split("\\s+");
-			String word = bits[0];
+			String word = bits[0];			
 			String label = bits[1];
 
 			Datum datum = new Datum(word, label);
@@ -94,4 +129,21 @@ public class FeatureFactory {
 		in.close();
 	}
  
+}
+
+class ValueComparator implements Comparator<Integer> {
+
+    Map<Integer, Integer> base;
+    public ValueComparator(Map<Integer, Integer> wordCount) {
+        this.base = wordCount;
+    }
+
+    // Note: this comparator imposes orderings that are inconsistent with equals.    
+    public int compare(Integer a, Integer b) {
+        if (base.get(a) >= base.get(b)) {
+            return -1;
+        } else {
+            return 1;
+        } // returning 0 would merge keys
+    }
 }

@@ -15,7 +15,7 @@ public class WindowModel {
 	final static double EPSILON = 1e-4;
 	final static double THRESHOLD = 1e-7;
 	
-	final static int MAX_TRAIN_SIZE = -1;
+	final static int MAX_TRAIN_SIZE = 0;
 	final static int N_VECTOR_SIZE = 50; // this won't change!
 	
 	// Default hyperparameters
@@ -39,6 +39,7 @@ public class WindowModel {
 	private List<Datum> testData;
 	public enum PARAMETERS {U, W, B1, B2, L};
 	
+	
 	// default constructor
 	public WindowModel(List<Datum> trainData, List<Datum> testData){
 		this(trainData, testData, DEFAULT_WINDOW_SIZE, DEFAULT_HIDDEN_SIZE, DEFAULT_LEARNING_RATE, DEFAULT_REGULARIZATION_WEIGHT, DEFAULT_NUM_ITERATIONS);
@@ -54,6 +55,7 @@ public class WindowModel {
 		learningRate = _learningRate;
 		numIterations = _numIter;
 		regularizationWeight = _regWeight;
+		
 		
 		initAll();
 	}		
@@ -141,7 +143,7 @@ public class WindowModel {
 		return L.extractVector(false, index);
 	}
 	
-	int trainingSizeM = -1;
+	
 	
 	private IntTuple extractTrainingExample(int j, List<Datum> _trainData, SimpleMatrix feature, int sentenceIndex, List<Integer> wordIndexList){
 		int halfWindowSize = windowSize/2;
@@ -280,15 +282,35 @@ public class WindowModel {
 			// test for plotting learning curve
 			double testF1 = test(testData);
 			double trainF1 = test(trainData);
-			int elapsedTime = (int)((System.currentTimeMillis() - startTime)/1000); 
+			int elapsedTime = (int)((System.currentTimeMillis() - startTime)/1000);
+			
 			writeResult(i, trainF1, testF1, totalCost_J, elapsedTime);
+			saveParametersToFile();
+			saveL("learnedL_" + getFileNameFromParameters() + ".csv");
 		}
+		
 		long endTime = System.currentTimeMillis();
 		System.out.println("training took " + (endTime - startTime)/1000 + " sec.");
 	}
 	
+	public void saveParametersToFile(){
+		Parameter p = new Parameter(L, W, U, b1, b2);
+		p.save();
+	}
+	
+	public void loadParametersFromFile(){
+		Parameter p = new Parameter();
+		L = p.getL();
+		W = p.getW();
+		U = p.getU();
+		b1 = p.getB1();
+		b2 = p.getB2();
+	}
+	private String getFileNameFromParameters(){
+		return String.format("%d_%d_%.4f_%.1f", windowSize, hiddenSize, learningRate, regularizationWeight);
+	}
 	private void writeResult(int iteration, double trainF1, double testF1, double totalCost, int elapsedTime){
-		String fileName = String.format("result_%d_%d_%.4f_%.4f.txt", windowSize, hiddenSize, learningRate, regularizationWeight);
+		String fileName = String.format("result_" + getFileNameFromParameters() + ".txt");
 		File f = new File(fileName);
 		BufferedWriter bw = null;
 		try{
@@ -417,30 +439,32 @@ public class WindowModel {
 		return true;
 	}
 	
-	/***
-	 * The cost is not yet normalized by the number of training (m)
-	 * @param x
-	 * @param y
-	 * @return
-	 */
+	
 	private double getCostJ(SimpleMatrix x, int y){
 		double hValue = getH(x);
-		double regTerm = 0.5 * regularizationWeight * (W.elementMult(W).elementSum() + U.elementMult(U).elementSum());
+		double regTerm = 0.5 * regularizationWeight * (W.elementMult(W).elementSum() + U.elementMult(U).elementSum()) / trainData.size();
 		return -y * Math.log(hValue) + (y-1)*Math.log(1-hValue) + regTerm;
 	}
 	
+	/***
+	 * The cost is not yet normalized by the number of training (m)
+	 * @return
+	 */
 	private double getCostNonRegTerm(SimpleMatrix x, int y, Double h_){
 		double hValue = h_ == null ? getH(x) : h_;
-		return -y * Math.log(hValue) + (y-1)*Math.log(1-hValue);
+		return (-y * Math.log(hValue) + (y-1)*Math.log(1-hValue));
 	}	
 	
+	/***
+	 * The cost is not yet normalized by the number of training (m)
+	 */
 	private double getCostRegTerm(){
 		return 0.5 * regularizationWeight * (W.elementMult(W).elementSum() + U.elementMult(U).elementSum());
 	}
 	
 	// dw(i,j) = sigmoid * (1-sigmoid) * [u(i,0) * D[tanh^2 (w(i,j) * x(j,0))] * x(j,0)]
 	private SimpleMatrix getD_J_W(SimpleMatrix x, double y, SimpleMatrix dz_, Double factor_h_){
-		SimpleMatrix dwReg = W.scale(regularizationWeight);
+		SimpleMatrix dwReg = W.scale(regularizationWeight / (double) trainData.size());
 		SimpleMatrix z = dz_ == null ? getTanhDerivativeMatrix(W.mult(x).plus(b1)) : dz_;
 		SimpleMatrix dw = z.elementMult(U).mult(x.transpose());
 		
@@ -515,7 +539,7 @@ public class WindowModel {
 	private SimpleMatrix getD_J_U(SimpleMatrix x, double y, SimpleMatrix z_, Double factor_h_){
 		
 		SimpleMatrix z = z_ == null? getTanhMatrix(W.mult(x).plus(b1)) : z_;
-		SimpleMatrix zReg = U.scale(regularizationWeight);
+		SimpleMatrix zReg = U.scale(regularizationWeight / (double) trainData.size());
 		double factor_h;
 		if(factor_h_ == null){
 			double h = getH(x);
@@ -573,15 +597,13 @@ public class WindowModel {
 		System.out.println("===================");
 		return f1;
 	}
-}
-
-class IntTuple{
-	private int x;
-	private int y;
-	public IntTuple(int x, int y){
-		this.x = x;
-		this.y = y;
+	
+	public void saveL(String fileName){
+		try {
+			L.saveToFileCSV(fileName);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
-	public int getFirst(){ return x;}
-	public int getSecond(){ return y;}
 }

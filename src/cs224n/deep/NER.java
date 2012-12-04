@@ -21,24 +21,32 @@ public class NER {
 		//	read the train and test data
 		FeatureFactory.initializeVocab("data/vocab.txt");
 		FeatureFactory.readWordVectors("data/wordVectors.txt");
+//		FeatureFactory.saveTopWords(trainData, "top10k.txt", 10000);
 		
 		// initialize model 
-		int windowSize = 7;
+		int windowSize = 5;
 		int hiddenSize = 100;
 		double learningRate = 0.001;
-		double regularization = 0.000;
+		double regularization = 3;
 		
-		int iter = 20;
+		int iter = 40;
 //		WindowModel model = new WindowModel(trainData, testData, windowSize, hiddenSize, learningRate, regularization, iter);
 		WindowModel model = null;
 //		int[] windowSizeArray = new int[]{3, 5, 7, 9};
 //		double[] learningRateArray = new double[]{0.003, 0.005, 0.01};
 		int[] hiddenSizeArray = new int[]{100};
+		
 		for(int h : hiddenSizeArray){
 			hiddenSize = h;
-			model = new WindowModel(trainData, testData, windowSize, hiddenSize, learningRate, regularization, iter);
-			model.train();
-			model.test();
+			model = new WindowModel(trainData, testData, windowSize, hiddenSize, learningRate, regularization, iter);			
+//			model.saveL("originalL");
+			model.loadParametersFromFile();
+//			model.saveL("learnedL");
+//			model.train();
+//			model.saveParametersToFile();
+	//		model.test();
+			
 		}
+		
     }
 }
